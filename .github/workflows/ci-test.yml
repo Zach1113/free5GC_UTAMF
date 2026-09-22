@@ -1,0 +1,129 @@
+name: CI Test
+
+on:
+  schedule:
+    - cron: '14 19 * * *'  # UTC 19:14 (Local 03:14)
+  issue_comment:
+    types: [created] # when user comment "#ci-test" in the PR, the workflow will be triggered
+  # pull_request:
+  workflow_dispatch:
+
+env:
+  FREE5GC_REPO: https://github.com/free5gc/free5gc
+  CI_TEST_REPO: https://github.com/free5gc/ci-test
+
+  CI_TEST_DIR: ci-test
+  CI_TEST_FREE5GC_DIR: free5gc
+
+  CI_TEST_COMPOSE_DIR: composes
+  CI_TEST_COMPOSE_BUILD_DIR: composes/build
+
+  E2E_BASIC_TEST_POOL: "TestRegPduCharging"
+
+  E2E_ULCL_TEST_POOL: "TestULCLTrafficInfluence TestULCLMultiPathUe"
+
+jobs:
+  daily-check:
+    name: Daily Check
+    if: github.event_name == 'schedule'
+    # if: github.event_name == 'pull_request'
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Check Command
+        run: |
+          docker --version
+          curl --version
+          jq --version
+      
+      - name: Clone free5gc/ci-test
+        run: |
+          rm -rf ${{ env.CI_TEST_DIR }}
+          git clone ${{ env.CI_TEST_REPO }}
+
+      - name: E2E Basic test
+        run: |
+          cd ${{ env.CI_TEST_DIR }}
+
+          for test in ${{ env.E2E_BASIC_TEST_POOL }}; do
+            echo "Running test: $test"
+            ./ci-test-e2e-basic.sh --test $test
+          done
+
+      - name: E2E ULCL test
+        run: |
+          cd ${{ env.CI_TEST_DIR }}
+
+          for test in ${{ env.E2E_ULCL_TEST_POOL }}; do
+            echo "Running test: $test"
+            ./ci-test-e2e-ulcl.sh --test $test
+          done
+
+      - name: Cleanup docker resources
+        if: always()
+        run: |
+          echo "Cleaning up docker resources..."
+          docker system prune -a -f
+          docker volume prune -a -f
+
+      - name: Clean up clone repositories
+        if: always()
+        run: |
+          rm -rf ${{ env.CI_TEST_DIR }}
+
+
+  source-code-test:
+    name: Source Code Test
+    if: (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '#ci-test')) || github.event_name == 'workflow_dispatch'
+    # if: github.event_name == 'pull_request'
+    runs-on: [self-hosted, linux, x64]
+    steps:
+      - name: Check Command
+        run: |
+          docker --version
+          curl --version
+          jq --version
+
+      - name: Clone free5gc/ci-test & init free5gc
+        run: |
+          rm -rf ${{ env.CI_TEST_DIR }}
+          git clone ${{ env.CI_TEST_REPO }}
+          cd ${{ env.CI_TEST_DIR }}
+          git clone -j `nproc` --recursive ${{ env.FREE5GC_REPO }}
+          cd ${{ env.CI_TEST_FREE5GC_DIR }}
+          git submodule foreach git checkout main
+          git submodule foreach git pull origin main
+
+      - name: Build Base Images
+        run: |
+          cd ${{ env.CI_TEST_DIR }}
+          make
+
+      - name: E2E Basic test
+        run: |
+          cd ${{ env.CI_TEST_DIR }}
+
+          for test in ${{ env.E2E_BASIC_TEST_POOL }}; do
+            echo "Running test: $test"
+            ./ci-test-e2e-basic.sh --test $test --build
+          done
+
+      - name: E2E ULCL test
+        run: |
+          cd ${{ env.CI_TEST_DIR }}
+
+          for test in ${{ env.E2E_ULCL_TEST_POOL }}; do
+            echo "Running test: $test"
+            ./ci-test-e2e-ulcl.sh --test $test --build
+          done
+
+      - name: Cleanup docker resources
+        if: always()
+        run: |
+          echo "Cleaning up docker resources..."
+          docker system prune -a -f
+          docker volume prune -a -f
+
+      - name: Clean up clone repositories
+        if: always()
+        run: |
+          rm -rf ${{ env.CI_TEST_DIR }}
