@@ -36,6 +36,9 @@ webconsole/public
 packages/
 free5gc.zip
 
+# Generated environment state
+/runtime/
+
 # cert
 cert/*_*.pem
 
