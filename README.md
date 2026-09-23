@@ -9,6 +9,30 @@ The research examines how the dispatch key and hand-off location affect AMF proc
 
 The `paper` mode is based on the NAS-boundary hand-off described by Nha and Nakao in *Multithreading-Based AMF Optimization for Pre-Slice Congestion Control in 5G Core Networks* (IEEE GC Wkshps 2025). This implementation studies its dispatch boundary and subscriber-based key. The priority mechanism described in the paper is outside the current implementation scope.
 
+## Quick start / 快速開始
+
+Clone the experiment branches with Core and RAN as sibling directories. Core pins the AMF submodule to [`experiment/trace`](https://github.com/DBGR18/amf-ngap-dispatch-bench/tree/experiment/trace), so `--recurse-submodules` checks out the tested AMF revision.
+
+```bash
+git clone --branch experiment/amf-dispatch-bench --recurse-submodules \
+  https://github.com/Zach1113/free5GC_UTAMF.git
+git clone --branch experiment/amf-dispatch-bench \
+  https://github.com/Zach1113/free-ran-ue.git
+cd free5GC_UTAMF
+```
+
+Edit the parameter block at the top of [`examples/run_experiment.sh`](examples/run_experiment.sh), then run:
+
+```bash
+bash examples/run_experiment.sh
+```
+
+The example starts **one gNB** and `UE_COUNT` UEs, configures and builds both repositories, provisions missing development subscribers, runs `blog` or `paper` with the requested positive `AMF_WORKERS`, and validates the resulting traces. Its default `UE_COUNT=1` is a smoke-test setting; increase it for load experiments. The default `free-ran-ns`/`free-ue-ns` names and `ens33` interface match the original single-VM test host. On another single VM, set both `EXISTING_*_NS` values to empty to create managed namespaces, and adjust IPs and `CORE_INTERFACE` to the local network. For two VMs, set `DEPLOYMENT_MODE=dual-vm`, `RAN_SSH`, `RAN_REPO`, and both VMs' IPs; the remote SSH account needs noninteractive sudo.
+
+Each run writes raw Core data to `runtime/runs/<RUN_ID>/core/` and RAN data to the RAN checkout's `runtime/runs/<RUN_ID>/ran/`. The Core directory includes `per_ue_metrics.csv` and `validation.json`. In dual-VM mode the script also collects the RAN directory under Core's `runtime/collected/<RUN_ID>/ran/`. StartTime is reported from same-clock gNB and AMF events; the cross-process literal field is only valid when both processes share a VM boot ID, time namespace, and `CLOCK_MONOTONIC` clock.
+
+See the [中文實驗交接與使用說明](docs/EXPERIMENT_USAGE.md) for prerequisites, topology, parameter meanings, output fields, and recovery commands. The dual-VM runtime path still requires a live smoke test on two machines; the single-VM script and 4-worker mode comparison were exercised locally.
+
 ## Research design
 
 After receiving an NGAP message from the gNB, the AMF can hand the work to a worker at different points:
@@ -70,22 +94,18 @@ Before each case, verify that the AMF startup log reports the requested mode and
 Pinned source versions:
 
 - free5GC: `v4.2.3`, commit `3b34a08e93a9b334f0f4005d3a3a9f79b66d59b9`
-- Modified AMF: branch `feat/submodule`, currently pinned to commit `d1c749254442beeeb405234e2a50ba9afb460e41`
+- Modified AMF: [`experiment/trace`](https://github.com/DBGR18/amf-ngap-dispatch-bench/tree/experiment/trace), pinned to commit `8956776aedef4d6583bad67e3c22c26bdbfd45b2`
+- RAN/UE fork: [`experiment/amf-dispatch-bench`](https://github.com/Zach1113/free-ran-ue/tree/experiment/amf-dispatch-bench), tested at `4ffbc7491929b52b7b2eb1b9897e062f95a8f424`
 
-Clone the repository together with the AMF submodule:
-
-```bash
-git clone --recurse-submodules https://github.com/Zach1113/free5GC_UTAMF.git
-cd free5GC_UTAMF
-```
-
-If the repository has already been cloned but the AMF directory is empty, initialize it with:
+If the Core repository has already been cloned but the AMF directory is empty, initialize the pinned submodule with:
 
 ```bash
 git submodule update --init --recursive
 ```
 
 ## Switching the AMF mode
+
+This section covers a standalone AMF check. For a complete Core + RAN experiment, set `AMF_MODE` and `AMF_WORKERS` in the editable example above; it renders the runtime configuration and restarts the AMF for each run.
 
 Usage:
 
