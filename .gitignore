@@ -44,3 +44,6 @@ cert/*_*.pem
 
 # ./test.sh All
 testing_output/
+/config/env.local
+__pycache__/
+*.pyc

@@ -13,9 +13,9 @@ WEBCONSOLE_GO_FILES = $(shell find $(WEBCONSOLE) -name "*.go" ! -name "*_test.go
 WEBCONSOLE_JS_FILES = $(shell find $(WEBCONSOLE)/frontend -name '*.tsx' ! -path "*/node_modules/*")
 WEBCONSOLE_FRONTEND = $(WEBCONSOLE)/public
 
-VERSION = $(shell git describe --tags)
+VERSION = $(shell git describe --tags --always --dirty)
 BUILD_TIME = $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
-COMMIT_HASH = $(shell git submodule status | grep $(GO_SRC_PATH)/$(@F) | awk '{print $$(1)}' | cut -c1-8)
+COMMIT_HASH = $(shell if [ "$(@F)" = amf ]; then git -C $(GO_SRC_PATH)/amf rev-parse --short=8 HEAD; else git rev-parse --short=8 HEAD; fi)
 COMMIT_TIME = $(shell cd $(GO_SRC_PATH)/$(@F) && git log --pretty="@%at" -1 | xargs date -u +"%Y-%m-%dT%H:%M:%SZ" -d)
 LDFLAGS = -X github.com/free5gc/util/version.VERSION=$(VERSION) \
           -X github.com/free5gc/util/version.BUILD_TIME=$(BUILD_TIME) \
@@ -80,3 +80,33 @@ clean:
 	rm -rf $(addprefix $(GO_SRC_PATH)/, $(addsuffix /$(C_BUILD_PATH), $(C_NF)))
 	rm -rf $(WEBCONSOLE)/$(GO_BIN_PATH)/$(WEBCONSOLE)
 
+
+.PHONY: doctor configure build-core test-amf core-up core-status core-down clean-runtime
+
+doctor:
+	python3 scripts/experiment.py doctor
+configure:
+	python3 scripts/env/configure.py
+build-core:
+	$(MAKE) nfs
+
+test-amf:
+	cd NFs/amf && go test ./internal/benchtrace ./internal/gmm ./internal/ngap ./pkg/factory
+core-up:
+	python3 scripts/experiment.py core-up
+core-status:
+	python3 scripts/experiment.py core-status
+core-down:
+	python3 scripts/experiment.py core-down
+clean-runtime:
+	python3 scripts/experiment.py clean-runtime
+
+.PHONY: provision-subscribers
+provision-subscribers:
+	python3 scripts/provision_subscribers.py --ue-config "$(UE_CONFIG)"
+
+.PHONY: core-network-up core-network-down
+core-network-up:
+	python3 scripts/experiment.py core-network-up
+core-network-down:
+	python3 scripts/experiment.py core-network-down

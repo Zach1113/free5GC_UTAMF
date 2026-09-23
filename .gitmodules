@@ -1,4 +1,4 @@
 [submodule "NFs/amf"]
 	path = NFs/amf
 	url = https://github.com/DBGR18/amf-ngap-dispatch-bench.git
-	branch = feat/submodule
+	branch = experiment/trace

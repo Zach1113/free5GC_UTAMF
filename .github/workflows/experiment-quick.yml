@@ -1,0 +1,41 @@
+name: experiment-quick
+on:
+  push:
+    branches: [experiment/amf-dispatch-bench]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  quick:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.2'
+      - name: Runtime config prerequisites
+        run: |
+          sudo apt-get update && sudo apt-get install -y python3-yaml
+          cp config/env.example config/env.local
+          python3 scripts/env/configure.py
+          python3 - <<'PY'
+          import yaml
+          c=yaml.safe_load(open('runtime/config/amfcfg.yaml'))['configuration']
+          assert c['ngapSchedulerMode']=='blog' and c['ngapWorkerPoolSize']==1
+          PY
+          sed -i 's/^AMF_MODE=blog$/AMF_MODE=paper/' config/env.local
+          sed -i 's/^AMF_WORKERS=1$/AMF_WORKERS=4/' config/env.local
+          python3 scripts/env/configure.py
+          python3 - <<'PY'
+          import yaml
+          c=yaml.safe_load(open('runtime/config/amfcfg.yaml'))['configuration']
+          assert c['ngapSchedulerMode']=='paper' and c['ngapWorkerPoolSize']==4
+          PY
+      - name: Syntax and AMF tests
+        run: |
+          bash -n examples/run_experiment.sh scripts/switch-amf-mode.sh
+          python3 -m py_compile scripts/experiment.py scripts/validate_run.py scripts/provision_subscribers.py
+          cd NFs/amf
+          go test ./internal/benchtrace ./internal/gmm ./internal/ngap ./pkg/factory
+          go build ./cmd

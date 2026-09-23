@@ -166,3 +166,13 @@ If the reported mode or worker count differs from the requested value, stop that
 ## Upstream sources and licenses
 
 The Core source is based on [free5GC](https://github.com/free5gc/free5gc). The modified AMF comes from [amf-ngap-dispatch-bench](https://github.com/DBGR18/amf-ngap-dispatch-bench) and is pinned through the `NFs/amf` submodule. License and notice files from each upstream component remain in their respective source trees. Repository-level licensing information is available in `LICENSE` and `THIRD-PARTY-NOTICES.txt`.
+
+## Editable experiment example
+
+完整中文交接與操作步驟見 [實驗使用說明](docs/EXPERIMENT_USAGE.md)。
+
+The matching RAN fork is [Zach1113/free-ran-ue](https://github.com/Zach1113/free-ran-ue/tree/experiment/amf-dispatch-bench). Edit `examples/run_experiment.sh` to select `single-vm` or `dual-vm`, `blog` or `paper`, worker count, UE count, and addresses. The script configures both repositories, provisions only missing development subscribers, starts Core and RAN, holds the run for `RUN_HOLD_SECONDS`, stops them gracefully, and writes raw traces plus `per_ue_metrics.csv` and `validation.json` for one run. On this VM, the example reuses `free-ran-ns` and `free-ue-ns`; clear both `EXISTING_*_NS` fields to create checkout-owned namespaces. It does not run a workload matrix or calculate aggregate statistics.
+
+The local smoke tests used Ubuntu 25.04 and Go 1.26.2. Prerequisites include PyYAML, MongoDB, the `gtp5g` kernel module, `iproute2`, `iptables`, and root access for network namespaces and Core NFs. On a dual VM setup, set `RAN_SSH` and an absolute `RAN_REPO`; the SSH user needs noninteractive `sudo` for `ran-up` and `ran-down`. The example copies `config/env.local` to the RAN VM, so both sides use the same shared config fingerprint. `config/env.local`, binaries, and `runtime/` are ignored by Git.
+
+The validator reports per-UE Registration, PDU, gNB-observed StartTime, and AMF-internal StartTime. It emits literal cross-process StartTime only when the manifests prove that gNB and AMF share the same VM boot ID, time namespace, and `CLOCK_MONOTONIC` source. On two VMs this field remains blank unless a separate clock synchronization and error-bound method is implemented.
