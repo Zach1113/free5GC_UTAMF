@@ -38,4 +38,5 @@ jobs:
           python3 -m py_compile scripts/experiment.py scripts/validate_run.py scripts/provision_subscribers.py
           cd NFs/amf
           go test ./internal/benchtrace ./internal/gmm ./internal/ngap ./pkg/factory
-          go build ./cmd
+          go build -o /tmp/amf-experiment-ci ./cmd
+          test -x /tmp/amf-experiment-ci
